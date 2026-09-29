@@ -3143,16 +3143,14 @@ class InitPassThroughEndpointHelpers:
     @staticmethod
     def is_registered_pass_through_route(route: str) -> bool:
         """
-        Check if route is a registered pass-through endpoint from DB
-
-        Uses the in-memory registry to avoid additional DB queries
-        Optimized for minimal latency
+        Check if route is a built-in provider pass-through (e.g. /typesafe, /vertex_ai) or a
+        config/DB pass-through in the in-memory registry.
 
         Args:
-            route: The route to check
+            route: The route to check, with or without the SERVER_ROOT_PATH prefix
 
         Returns:
-            bool: True if route is a registered pass-through endpoint, False otherwise
+            bool: True if route is a pass-through endpoint, False otherwise
         """
         comparison_route: Final = normalize_route_for_root_path(route)
         if any(comparison_route.startswith(mapped) for mapped in LiteLLMRoutes.mapped_pass_through_routes.value):
@@ -3177,7 +3175,10 @@ class InitPassThroughEndpointHelpers:
 
     @staticmethod
     def get_registered_pass_through_route(route: str, method: str | None = None) -> dict[str, Any] | None:
-        """Get passthrough params for a given route and optionally filter by HTTP method"""
+        """
+        Get passthrough params for a route, with or without the SERVER_ROOT_PATH prefix,
+        optionally filtered by HTTP method
+        """
         comparison_route: Final = normalize_route_for_root_path(route)
         for key in _registered_pass_through_routes:
             parts = key.split(":", 3)  # Split into [endpoint_id, type, path, methods?]
