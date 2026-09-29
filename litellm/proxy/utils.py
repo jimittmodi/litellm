@@ -8320,13 +8320,11 @@ def get_server_root_path() -> str:
     return os.getenv("SERVER_ROOT_PATH", "")
 
 
-def normalize_route_for_root_path(route: str) -> str | None:
-    """Strip SERVER_ROOT_PATH prefix. Returns de-prefixed route, or None if route is not under root path."""
+def normalize_route_for_root_path(route: str) -> str:
+    """Strip the SERVER_ROOT_PATH prefix if present; routes from get_request_route() are already stripped."""
     root_path: Final = get_server_root_path()
-    if root_path and root_path != "/":
-        if route.startswith(root_path + "/"):
-            return route[len(root_path) :]
-        return None
+    if root_path and root_path != "/" and route.startswith(root_path + "/"):
+        return route[len(root_path) :]
     return route
 
 

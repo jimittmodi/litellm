@@ -3582,27 +3582,44 @@ def test_db_registered_pass_through_route_bare_path_convention(
     _registered_pass_through_routes.clear()
 
 
-def test_mapped_pass_through_routes_with_server_root_path():
-    """
-    Mapped passthrough routes (vertex_ai, bedrock, etc) should match
-    even when SERVER_ROOT_PATH is set and the incoming route is prefixed.
-
-    Regression test for https://github.com/BerriAI/litellm/issues/22272
-    """
+@pytest.mark.parametrize(
+    "route",
+    ["/litellm/vertex_ai/v1/projects/foo", "/vertex_ai/v1/projects/foo", "/litellm/bedrock/model/invoke"],
+)
+def test_mapped_pass_through_routes_match_with_or_without_server_root_path_prefix(monkeypatch, route):
+    """Regression for #22272 and #43715"""
     from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"):
-        # prefixed route should match mapped routes like /vertex_ai
-        assert (
-            InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/vertex_ai/v1/projects/foo")
-            is True
-        )
-        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/bedrock/model/invoke") is True
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/litellm")
+    assert InitPassThroughEndpointHelpers.is_registered_pass_through_route(route) is True
 
-        # bare route without prefix should not match when root is set
-        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/vertex_ai/v1/projects/foo") is False
+
+def test_mapped_pass_through_route_resolved_from_request_under_server_root_path(monkeypatch):
+    """Regression for #43715: the built-in /typesafe route returned 404 when SERVER_ROOT_PATH was set"""
+    from litellm.proxy.auth.auth_utils import get_request_route
+    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        InitPassThroughEndpointHelpers,
+    )
+
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/api/v1")
+    request: Final = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/typesafe/decisions",
+            "root_path": "/api/v1",
+            "headers": [],
+            "query_string": b"",
+        }
+    )
+    route: Final = get_request_route(request)
+
+    assert (route, InitPassThroughEndpointHelpers.is_registered_pass_through_route(route)) == (
+        "/typesafe/decisions",
+        True,
+    )
 
 
 @pytest.mark.asyncio

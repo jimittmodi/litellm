@@ -1794,3 +1794,34 @@ def test_mapped_key_jwt_falls_through_to_the_shared_user_budget_attach():
         "the mapped-key branch returns before the shared virtual-key checks, so the "
         "user's per-model budget is never attached and never enforced"
     )
+
+
+@pytest.mark.asyncio
+async def test_litellm_user_api_key_header_used_on_mapped_route_under_server_root_path(monkeypatch):
+    """Regression for #43715: routes from get_request_route() are already stripped of SERVER_ROOT_PATH"""
+    from starlette.requests import Request as StarletteRequest
+
+    from litellm.proxy.auth.user_api_key_auth import (
+        check_api_key_for_custom_headers_or_pass_through_endpoints,
+    )
+
+    monkeypatch.setenv("SERVER_ROOT_PATH", "/api/v1")
+    request = StarletteRequest(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/typesafe/decisions",
+            "root_path": "/api/v1",
+            "headers": [(b"litellm_user_api_key", b"sk-from-header")],
+            "query_string": b"",
+        }
+    )
+
+    result = await check_api_key_for_custom_headers_or_pass_through_endpoints(
+        request=request,
+        route="/typesafe/decisions",
+        pass_through_endpoints=None,
+        api_key="sk-provider-key",
+    )
+
+    assert result == "sk-from-header"

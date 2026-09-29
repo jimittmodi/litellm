@@ -3141,18 +3141,6 @@ class InitPassThroughEndpointHelpers:
         return list(_registered_pass_through_routes.keys())
 
     @staticmethod
-    def _route_for_registry_lookup(route: str) -> str:
-        """
-        Normalize an incoming route to the bare path stored in the registry.
-
-        Registry keys store root-stripped paths. Callers should pass routes from
-        ``get_request_route()`` (already stripped); prefixed ``request.url.path``
-        values are stripped via ``normalize_route_for_root_path``.
-        """
-        normalized_route: Final = normalize_route_for_root_path(route)
-        return normalized_route if normalized_route is not None else route
-
-    @staticmethod
     def is_registered_pass_through_route(route: str) -> bool:
         """
         Check if route is a registered pass-through endpoint from DB
@@ -3166,14 +3154,9 @@ class InitPassThroughEndpointHelpers:
         Returns:
             bool: True if route is a registered pass-through endpoint, False otherwise
         """
-        ## CHECK IF MAPPED PASS THROUGH ENDPOINT
-        normalized_route: Final = normalize_route_for_root_path(route)
-        if normalized_route is not None:
-            for mapped_route in LiteLLMRoutes.mapped_pass_through_routes.value:
-                if normalized_route.startswith(mapped_route):
-                    return True
-
-        comparison_route: Final = InitPassThroughEndpointHelpers._route_for_registry_lookup(route)
+        comparison_route: Final = normalize_route_for_root_path(route)
+        if any(comparison_route.startswith(mapped) for mapped in LiteLLMRoutes.mapped_pass_through_routes.value):
+            return True
 
         # Fast path: check if any registered route key contains this path
         # Keys are in format: "{endpoint_id}:exact:{path}:{methods}" or "{endpoint_id}:subpath:{path}:{methods}"
@@ -3195,7 +3178,7 @@ class InitPassThroughEndpointHelpers:
     @staticmethod
     def get_registered_pass_through_route(route: str, method: str | None = None) -> dict[str, Any] | None:
         """Get passthrough params for a given route and optionally filter by HTTP method"""
-        comparison_route: Final = InitPassThroughEndpointHelpers._route_for_registry_lookup(route)
+        comparison_route: Final = normalize_route_for_root_path(route)
         for key in _registered_pass_through_routes:
             parts = key.split(":", 3)  # Split into [endpoint_id, type, path, methods?]
             if len(parts) >= 3:
