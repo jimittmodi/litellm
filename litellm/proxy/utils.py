@@ -8321,7 +8321,7 @@ def get_server_root_path() -> str:
 
 
 def normalize_route_for_root_path(route: str) -> str:
-    """Strip the SERVER_ROOT_PATH prefix if present; routes from get_request_route() are already stripped."""
+    """Strip SERVER_ROOT_PATH prefix if present; routes from get_request_route() are already stripped."""
     root_path: Final = get_server_root_path()
     if root_path and root_path != "/" and route.startswith(root_path + "/"):
         return route[len(root_path) :]
